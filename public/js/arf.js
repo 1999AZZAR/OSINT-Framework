@@ -1,25 +1,56 @@
 var margin = [20, 120, 20, 140],
-    width = 1280 - margin[1] - margin[3],
-    height = 800 - margin[0] - margin[2],
     i = 0,
-    duration = 1250,
-    root;
+    duration = 750,
+    root,
+    allNodes = [];
 
-var tree = d3.layout.tree()
-    .size([height, width]);
+var tree, diagonal, vis;
 
-var diagonal = d3.svg.diagonal()
-    .projection(function(d) { return [d.y, d.x]; });
+function redraw() {
+    d3.select("#body svg").remove();
 
-var vis = d3.select("#body").append("svg:svg")
-    .attr("width", width + margin[1] + margin[3])
-    .attr("height", height + margin[0] + margin[2])
-  .append("svg:g")
-    .attr("transform", "translate(" + margin[3] + "," + margin[0] + ")");
+    var container = d3.select("#body").node();
+    var width = container.clientWidth;
+    var height = container.clientHeight;
+
+    tree = d3.layout.tree();
+
+    diagonal = d3.svg.diagonal()
+        .projection(function(d) { return [d.y, d.x]; });
+
+    vis = d3.select("#body").append("svg:svg")
+        .attr("width", width)
+        .attr("height", height)
+      .append("svg:g")
+        .attr("transform", "translate(" + margin[3] + "," + margin[0] + ")");
+    
+    update(root);
+}
 
 d3.json("arf.json", function(json) {
   root = json;
-  root.x0 = height / 2;
+  
+  // Pre-process data: assign parent references and unique IDs
+  var nodeIdCounter = 0;
+  function processData(node, parent) {
+      node.id = ++nodeIdCounter;
+      node.parent = parent;
+      allNodes.push(node);
+      var children = node.children ? node.children : (node._children ? node._children : []);
+      children.forEach(function(child) {
+          processData(child, node);
+      });
+  }
+  processData(root, null);
+  
+  // Populate autocompletion datalist
+  var uniqueNodeNames = [...new Set(allNodes.map(function(n) { return n.name; }))];
+  var datalist = d3.select("#search-suggestions");
+  uniqueNodeNames.forEach(function(name) {
+      datalist.append("option").attr("value", name);
+  });
+
+  root.x0 = 800 / 2; // Initial position, will be updated
   root.y0 = 0;
 
   function collapse(d) {
@@ -37,17 +68,22 @@ d3.json("arf.json", function(json) {
     }
   } */
   root.children.forEach(collapse);
-  update(root);
+  redraw();
+  d3.select(window).on("resize", redraw);
 });
 
 function update(source) {
-  // var duration = d3.event && d3.event.altKey ? 5000 : 500;
+  var container = d3.select("#body").node();
+  var width = container.clientWidth;
+  var height = container.clientHeight;
+  
+  tree.size([height - margin[0] - margin[2], width - margin[3] - margin[1]]);
 
   // Compute the new tree layout.
   var nodes = tree.nodes(root).reverse();
 
   // Normalize for fixed-depth.
-  nodes.forEach(function(d) { d.y = d.depth * 180; });
+  nodes.forEach(function(d) { d.y = d.depth * 240; }); // Increased depth spacing
 
   // Update the nodes…
   var node = vis.selectAll("g.node")
@@ -149,8 +185,68 @@ function toggle(d) {
     d._children = null;
   }
 }
-//Togle Dark Mode
+
+// Toggle Dark Mode
 function goDark() {
   var element = document.body;
-  element.classList.toggle("dark-Mode");
-} 
+  element.classList.toggle("dark-mode");
+}
+
+function search(searchTerm) {
+    var lowerCaseSearchTerm = searchTerm.toLowerCase();
+    
+    // Find all matching nodes
+    var matchedNodes = allNodes.filter(function(d) {
+        return d.name.toLowerCase().includes(lowerCaseSearchTerm) || 
+               (d.description && d.description.toLowerCase().includes(lowerCaseSearchTerm));
+    });
+
+    // Expand the parents of matched nodes
+    var nodesToExpand = new Set();
+    matchedNodes.forEach(function(d) {
+        var current = d.parent;
+        while(current) {
+            nodesToExpand.add(current);
+            current = current.parent;
+        }
+    });
+
+    nodesToExpand.forEach(function(d) {
+        if (d._children) {
+            toggle(d);
+        }
+    });
+    
+    update(root); // Redraw the tree with expanded nodes
+
+    // Highlight the matched nodes and their ancestors
+    var nodesToHighlight = new Set(matchedNodes);
+    matchedNodes.forEach(function(d){
+        var current = d;
+        while(current){
+            nodesToHighlight.add(current);
+            current = current.parent;
+        }
+    });
+
+    vis.selectAll("g.node")
+        .style("opacity", d => nodesToHighlight.has(d) ? "1" : "0.2");
+}
+
+function clearSearch() {
+    vis.selectAll("g.node").style("opacity", "1");
+    // Collapse all nodes except root's immediate children
+    if(root.children) {
+        root.children.forEach(collapse);
+    }
+    update(root);
+}
+
+d3.select("#search").on("input", function() {
+    var searchTerm = this.value;
+    if (searchTerm.length > 2) {
+        search(searchTerm);
+    } else {
+        clearSearch();
+    }
+}); 
