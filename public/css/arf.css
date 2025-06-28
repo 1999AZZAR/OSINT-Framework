@@ -20,6 +20,7 @@ body {
     transition: background-color 0.5s ease, color 0.5s ease;
     background: linear-gradient(120deg, #d4e0e8 0%, #a7c5eb 100%);
     background-size: cover;
+    overflow: auto;
 }
 
 a {
@@ -59,7 +60,6 @@ a:hover {
 #main-content {
     flex-grow: 1;
     margin-left: 1rem;
-    overflow: hidden; /* Prevent scrollbars on main content */
     position: relative;
     background-color: rgba(255, 255, 255, 0.4);
     backdrop-filter: blur(15px) saturate(180%);
@@ -70,9 +70,33 @@ a:hover {
     padding: 0;
 }
 
+#loader {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    width: 60px;
+    height: 60px;
+    margin: -30px 0 0 -30px;
+    border: 8px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.dark-mode #loader {
+    border-color: rgba(255, 255, 255, 0.1);
+    border-top-color: var(--primary-color-light);
+}
+
 #body {
     width: 100%;
     height: 100%;
+    overflow: auto;
 }
 
 header {
@@ -111,6 +135,25 @@ footer {
     margin-bottom: 8px;
     font-weight: 500;
     font-size: 1.1em;
+}
+
+.search-wrapper {
+    position: relative;
+}
+
+#clear-search {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #999;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+#search:not(:placeholder-shown) + #clear-search {
+    opacity: 1;
 }
 
 #search {
@@ -237,7 +280,6 @@ body.dark-mode {
 }
 
 .node circle {
-    stroke: #333;
     stroke-width: 1.5px;
     transition: stroke 0.5s ease, fill 0.3s ease;
 }
@@ -268,4 +310,56 @@ body.dark-mode {
 }
 .dark-mode .node circle:hover {
     fill: var(--primary-color-light);
+}
+
+/* Responsive Styles */
+#menu-toggle {
+    display: none; /* Hidden by default */
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    cursor: pointer;
+    font-size: 1.5rem;
+    color: var(--text-color-light);
+}
+.dark-mode #menu-toggle {
+    color: var(--text-color-dark);
+}
+
+
+@media (max-width: 768px) {
+    #container {
+        flex-direction: column;
+        padding: 0.5rem;
+    }
+
+    #sidebar {
+        position: fixed;
+        left: -320px; /* Hidden by default */
+        top: 0;
+        bottom: 0;
+        height: 100vh;
+        z-index: 1000;
+        width: 300px;
+        margin: 0;
+        border-radius: 0;
+        transition: left 0.3s ease-in-out;
+    }
+
+    #sidebar.visible {
+        left: 0;
+    }
+
+    #main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    #menu-toggle {
+        display: block;
+    }
+    #body {
+        overflow: auto;
+    }
 }

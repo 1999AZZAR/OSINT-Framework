@@ -6,6 +6,14 @@ var margin = [20, 120, 20, 140],
 
 var tree, diagonal, vis;
 
+function collapse(d) {
+  if (d.children) {
+    d._children = d.children;
+    d._children.forEach(collapse);
+    d.children = null;
+  }
+}
+
 function redraw() {
     d3.select("#body svg").remove();
 
@@ -53,34 +61,34 @@ d3.json("arf.json", function(json) {
   root.x0 = 800 / 2; // Initial position, will be updated
   root.y0 = 0;
 
-  function collapse(d) {
-    if (d.children) {
-      d._children = d.children;
-      d._children.forEach(collapse);
-      d.children = null;
-    }
-  }
-
-/*  function toggleAll(d) {
-    if (d.children) {
-      d.children.forEach(toggleAll);
-      toggle(d);
-    }
-  } */
   root.children.forEach(collapse);
   redraw();
+  d3.select("#loader").style("display", "none");
   d3.select(window).on("resize", redraw);
 });
 
 function update(source) {
   var container = d3.select("#body").node();
-  var width = container.clientWidth;
   var height = container.clientHeight;
   
-  tree.size([height - margin[0] - margin[2], width - margin[3] - margin[1]]);
-
-  // Compute the new tree layout.
   var nodes = tree.nodes(root).reverse();
+  
+  var maxDepth = 0;
+  nodes.forEach(function(d) {
+      if (d.depth > maxDepth) {
+          maxDepth = d.depth;
+      }
+  });
+  
+  var requiredWidth = (maxDepth * 240) + margin[1] + margin[3] + 300; // Adjusted for labels
+  var newWidth = Math.max(container.clientWidth, requiredWidth);
+
+  d3.select("#body svg").attr("width", newWidth);
+  
+  tree.size([height - margin[0] - margin[2], newWidth - margin[3] - margin[1]]);
+
+  // Re-calculate nodes with the new size. This is necessary for correct positioning.
+  nodes = tree.nodes(root).reverse();
 
   // Normalize for fixed-depth.
   nodes.forEach(function(d) { d.y = d.depth * 240; }); // Increased depth spacing
@@ -96,8 +104,7 @@ function update(source) {
       .on("click", function(d) { toggle(d); update(d); });
 
   nodeEnter.append("svg:circle")
-      .attr("r", 1e-6)
-      .style("fill", function(d) { return d._children ? "lightsteelblue" : "#fff"; });
+      .attr("r", 1e-6);
 
   nodeEnter.append('a')
       .attr("target", "_blank")
@@ -122,7 +129,8 @@ function update(source) {
 
   nodeUpdate.select("circle")
       .attr("r", 6)
-      .style("fill", function(d) { return d._children ? "lightsteelblue" : "#fff"; });
+      .style("fill", function(d) { return d._children ? "var(--primary-color)" : "#fff"; })
+      .style("stroke", "var(--primary-color)");
 
   nodeUpdate.select("text")
       .style("fill-opacity", 1);
@@ -230,13 +238,17 @@ function search(searchTerm) {
     });
 
     vis.selectAll("g.node")
-        .style("opacity", d => nodesToHighlight.has(d) ? "1" : "0.2");
+        .style("display", d => nodesToHighlight.has(d) ? "block" : "none");
+        
+    vis.selectAll("path.link")
+        .style("display", d => (nodesToHighlight.has(d.source) && nodesToHighlight.has(d.target)) ? "block" : "none");
 }
 
 function clearSearch() {
-    vis.selectAll("g.node").style("opacity", "1");
-    // Collapse all nodes except root's immediate children
-    if(root.children) {
+    vis.selectAll("g.node").style("display", "block");
+    vis.selectAll("path.link").style("display", "block");
+    // Collapse all nodes back to the initial state
+    if (root.children) {
         root.children.forEach(collapse);
     }
     update(root);
@@ -249,4 +261,22 @@ d3.select("#search").on("input", function() {
     } else {
         clearSearch();
     }
-}); 
+});
+
+d3.select("#clear-search").on("click", function() {
+    d3.select("#search").property("value", "");
+    clearSearch();
+});
+
+d3.select("#menu-toggle").on("click", function() {
+    d3.select("#sidebar").classed("visible", !d3.select("#sidebar").classed("visible"));
+});
+
+d3.select("#main-content").on("click", function() {
+    if (d3.select("#sidebar").classed("visible")) {
+        // Check if the click was outside the sidebar and not on the menu toggle
+        if (!d3.event.target.closest("#sidebar") && !d3.event.target.closest("#menu-toggle")) {
+            d3.select("#sidebar").classed("visible", false);
+        }
+    }
+});

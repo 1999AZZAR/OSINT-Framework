@@ -18,7 +18,10 @@
                 <div id="controls">
                     <div class="control-group">
                         <label for="search">Search:</label>
-                        <input type="text" id="search" list="search-suggestions" placeholder="Filter nodes...">
+                        <div class="search-wrapper">
+                            <input type="text" id="search" list="search-suggestions" placeholder="Filter nodes...">
+                            <i class="fas fa-times-circle" id="clear-search"></i>
+                        </div>
                         <datalist id="search-suggestions"></datalist>
                     </div>
                     <div class="control-group">
@@ -51,9 +54,13 @@
             </footer>
         </aside>
         <main id="main-content">
+            <div id="menu-toggle">
+                <i class="fas fa-bars"></i>
+            </div>
+            <div id="loader"></div>
             <div id="body"></div>
         </main>
     </div>
     <script src="js/arf.js"></script>
 </body>
-</html> 
+</html>
